@@ -3,62 +3,127 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 
-from xpath_site import Amazon
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+import xpath_site
+import json
+import time
 
 url_t = 'https://www.amazon.com.br/s?k=frigideira&__mk_pt_BR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=2AVD4M4EFDU6X&sprefix=frigideira%2Caps%2C201&ref=nb_sb_noss_1'
 
-amazon = Amazon()
+#amazon = Amazon()
  
 service = Service(ChromeDriverManager().install())
 
 driver = webdriver.Chrome(service = service)
-
-item_body1 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[3]/div'
-item_body2 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[6]/div'
-
-item_name1 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[3]/div/div/div/div/div/div/div[2]/div[1]/h2'
-item_name2 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[6]/div/div/div/div/div/div/div[2]/div[1]/h2'
-   
-item_price1 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[3]/div/div/div/div/div/div/div[2]/div[2]/div[1]/div[1]/a/span/span[1]'
-item_price2 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[29]/div/div/div/div/div[2]/div[3]/div'
-item_price3 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[25]/div/div/div/div/div/div/div[2]/div[2]/div/div[1]/a/span/span[1]'
-    
-item_frete1 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[3]/div/div/div/div/div/div/div[2]/div[3]/div/div[2]/span/span'
-item_frete2 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[31]/div/div/div/div/div[2]/div[4]/div/div[2]/span/span'
-    
-item_dead_line1 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[3]/div/div/div/div/div/div/div[2]/div[3]/div/div[1]/span/span[2]'
-item_dead_line2 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[31]/div/div/div/div/div[2]/div[4]/div/div[1]/span'
-item_dead_line3 = '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[30]/div/div/div/div/div[2]/div[4]/div/div[1]/span/span[2]'
+wait = WebDriverWait(driver, 10)
 
 driver.get(url_t)
 
 item_name = ''
 item_price = ''
-item_frete = ''
+item_shipping = ''
+item_date = ''
+item_url = ''
 
-item_bric = []
 final_list = []
 
-texto = driver.find_element(By.XPATH, '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[10]/div').text
-for count in range(3,50):
-    print(f'CONTADOR {count}')
-    item_box = driver.find_element(By.XPATH, f'/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[{count}]/div').text
-    attribute_list = item_box.split('\n')
-    print(attribute_list)
-    
-    initial_count = 0
-    
-    if (attribute_list[initial_count] == 'Patrocinado') or (attribute_list[initial_count] == 'Escolha da Amazon') or (attribute_list[initial_count] == 'Mais vendido'):
-        item_name = attribute_list[initial_count]
+def get_name(attribute_list, initial_count):
+    if (attribute_list[initial_count] == 'Patrocinado') or (attribute_list[initial_count] == 'Escolha da Amazon') or (attribute_list[initial_count] == 'Mais vendido') or (attribute_list[initial_count] == 'Pesquisas relacionadas') or (attribute_list[initial_count] == 'Mais vendido'):
+        item_name = attribute_list[initial_count + 1]
+        print("Pega o Próximo")
     else:
         item_name = attribute_list[initial_count] 
-        
+        print("Esse é o nome")   
+    
+    return item_name
+
+
+def get_shipping(item_box):
+    return item_box.find_element(By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'frete')]").text
+
+
+def get_url(item_box):
+    return item_box.find_element(By.TAG_NAME, 'a').get_attribute('href')
+
+
+def get_price(initial_count, attribute_list):
     for item_count in range(initial_count + 1,len(attribute_list)):
         if ('R$' in attribute_list[item_count]) == True and (',' in attribute_list[item_count]) == False:
-            item_price = attribute_list[item_count] + ',' + attribute_list[item_count  + 1][:2]
+            item_price = attribute_list[item_count] + '.' + attribute_list[item_count  + 1][:2]
+            item_price = item_price.replace("R$", '')
 
+    return item_price
+
+
+def get_date(initial_count,attribute_list):
+    for item_count in range(initial_count + 1,len(attribute_list)):
+        if ('RECEBA' in attribute_list[item_count].upper()):
+            item_date = attribute_list[item_count].upper()
+            item_date = item_date.replace('RECEBA ATÉ ', '').replace('RECEBA ', '')
+
+
+def search_itens(first_page):
+    global final_list
+
+
+    for count in range(3,62):
+
+        item_name = '*******************************'
+        item_price = '*******************************'
+        item_date = '*******************************'
+        item_shipping = '*******************************'
+        item_url = '*******************************'
+
+        print(f'Item {count}')
         
-    print("NOME: " + item_name)
-    print("PRICE: " + item_price)
+        path = f'/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[{count}]/div'
+        item_box = driver.find_element(By.XPATH, path)
+        attribute_list = item_box.text.split('\n')
 
-    print("#######################\n")
+        initial_count = 0
+        
+        print(attribute_list)
+
+        item_name = get_name(attribute_list, initial_count)       
+        item_price = get_price(initial_count, attribute_list)
+        item_date = get_date(initial_count,attribute_list)
+        
+        item_shipping = get_shipping(item_box)
+        item_url = get_url(item_box)
+
+        if (item_name == '*******************************') or (item_price == '*******************************') or (item_date == '*******************************') or (item_shipping == '*******************************') or (item_url == '*******************************'):
+            print("RASPAGEM COM DEFEITO")
+
+            print(attribute_list)
+        if (item_name != '') or (item_price != '') or (item_date != '') or (item_shipping != '') or (item_url != ''):
+            item_key = {'name' : item_name, 'price' : item_price, 'date' : item_date, 'shipping' : item_shipping, 'url' : item_url, 'page' : 'Amazon'}
+        
+        final_list.append(item_key)
+
+
+def verify_button_next_page():
+    wait.until(EC.presence_of_element_located((By.XPATH, "//*[text() = 'Próximo']")))
+    if driver.find_element(By.XPATH, "//*[text() = 'Próximo']").get_attribute('aria-disabled'):
+        print("Não há mais páginas")
+        return 0
+    else:
+        driver.find_element(By.XPATH, "//*[text() = 'Próximo']").click()
+        print("Indo para a próxima página")
+        return 1
+
+
+def main():
+    global final_list
+    flag = True
+    while True:
+        search_itens(flag)
+        if verify_button_next_page() == 0:
+            break
+        flag = False
+
+    print(json.dumps(final_list))
+
+
+main()
