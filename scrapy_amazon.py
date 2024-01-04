@@ -10,7 +10,7 @@ import xpath_site
 import json
 import time
 
-url_t = 'https://www.amazon.com.br/s?k=frigideira&__mk_pt_BR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=2AVD4M4EFDU6X&sprefix=frigideira%2Caps%2C201&ref=nb_sb_noss_1'
+url_t = 'https://www.amazon.com.br/s?k=tablet+samaung+fe+lil%C3%A1s&__mk_pt_BR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=3JXWQC5DSOIG5&sprefix=tablet+samaung+fe+lil%C3%A1%2Caps%2C240&ref=nb_sb_noss'
 
 #amazon = Amazon()
  
@@ -32,10 +32,8 @@ final_list = []
 def get_name(attribute_list, initial_count):
     if (attribute_list[initial_count] == 'Patrocinado') or (attribute_list[initial_count] == 'Escolha da Amazon') or (attribute_list[initial_count] == 'Mais vendido') or (attribute_list[initial_count] == 'Pesquisas relacionadas') or (attribute_list[initial_count] == 'Mais vendido'):
         item_name = attribute_list[initial_count + 1]
-        print("Pega o Próximo")
     else:
         item_name = attribute_list[initial_count] 
-        print("Esse é o nome")   
     
     return item_name
 
@@ -63,11 +61,31 @@ def get_date(initial_count,attribute_list):
             item_date = attribute_list[item_count].upper()
             item_date = item_date.replace('RECEBA ATÉ ', '').replace('RECEBA ', '')
 
-
-def search_itens(first_page):
+def return_list_itens(attribute_list, item_box):
     global final_list
 
+    initial_count = 0
 
+    item_name = get_name(attribute_list, initial_count)   
+    item_price = get_price(initial_count, attribute_list)
+
+    item_date = get_date(initial_count,attribute_list)
+        
+    item_shipping = get_shipping(item_box)
+    item_url = get_url(item_box)
+
+    if (item_name == '*******************************') or (item_price == '*******************************') or (item_date == '*******************************') or (item_shipping == '*******************************') or (item_url == '*******************************'):
+        print("RASPAGEM COM DEFEITO")
+
+        print(attribute_list)
+    if (item_name != '') or (item_price != '') or (item_date != '') or (item_shipping != '') or (item_url != ''):
+        item_key = {'name' : item_name, 'price' : item_price, 'date' : item_date, 'shipping' : item_shipping, 'url' : item_url, 'page' : 'Amazon'}
+    
+    return item_key
+
+def search_itens(first_page):
+    
+    wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[3]/div')))
     for count in range(3,62):
 
         item_name = '*******************************'
@@ -79,29 +97,22 @@ def search_itens(first_page):
         print(f'Item {count}')
         
         path = f'/html/body/div[1]/div[1]/div[1]/div[1]/div/span[1]/div[1]/div[{count}]/div'
+
         item_box = driver.find_element(By.XPATH, path)
+  
         attribute_list = item_box.text.split('\n')
-
-        initial_count = 0
-        
-        print(attribute_list)
-
-        item_name = get_name(attribute_list, initial_count)       
-        item_price = get_price(initial_count, attribute_list)
-        item_date = get_date(initial_count,attribute_list)
-        
-        item_shipping = get_shipping(item_box)
-        item_url = get_url(item_box)
-
-        if (item_name == '*******************************') or (item_price == '*******************************') or (item_date == '*******************************') or (item_shipping == '*******************************') or (item_url == '*******************************'):
-            print("RASPAGEM COM DEFEITO")
-
-            print(attribute_list)
-        if (item_name != '') or (item_price != '') or (item_date != '') or (item_shipping != '') or (item_url != ''):
-            item_key = {'name' : item_name, 'price' : item_price, 'date' : item_date, 'shipping' : item_shipping, 'url' : item_url, 'page' : 'Amazon'}
-        
-        final_list.append(item_key)
-
+        if ('Não disponível.' in attribute_list) or ('Nenhuma opção de compra em destaque' in attribute_list):
+            print("PRODUTO NÃO DISPONÍVEL OU INVÁLIDO")
+        else:
+            try:
+                item_key = return_list_itens(attribute_list, item_box)
+                final_list.append(item_key)
+                print(item_key['name'])
+            except Exception:
+                print(attribute_list)
+                print(Exception)
+                while True:
+                    x = 1
 
 def verify_button_next_page():
     wait.until(EC.presence_of_element_located((By.XPATH, "//*[text() = 'Próximo']")))
@@ -112,7 +123,6 @@ def verify_button_next_page():
         driver.find_element(By.XPATH, "//*[text() = 'Próximo']").click()
         print("Indo para a próxima página")
         return 1
-
 
 def main():
     global final_list
