@@ -3,11 +3,13 @@ kind: Component
 metadata:
   name: webscraping
   description: An example of a Backstage application.
+  annotations:
+    github.com/project-slug: raizen-analytics/backstage # Esse campo deve ser sempre igual ao nome do repositório
   # Example for optional annotations
   # annotations:
   #   github.com/project-slug: backstage/backstage
   #   backstage.io/techdocs-ref: dir:.
 spec:
   type: website
-  owner: john@example.com
+  owner: group:default/test
   lifecycle: experimental
